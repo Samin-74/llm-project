@@ -117,39 +117,17 @@ def strip_process_preface(text: str) -> str:
     return cleaned if cleaned else original
 
 
-def safe_invoke_text(llm, messages, fallback_text: str = "", retries: int = 1) -> str:
-    """Invoke an LLM call with retry and optional fallback text."""
-    last_error = ""
-    attempts = max(1, retries + 1)
-
-    for _ in range(attempts):
-        try:
-            response = llm.invoke(messages)
-            text = extract_text(getattr(response, "content", ""))
-            if text and text.strip():
-                return text
-        except Exception as e:
-            last_error = str(e)
-
-    if fallback_text:
-        if last_error:
-            return f"{fallback_text} (Temporary model/provider issue: {last_error[:160]})"
+def safe_invoke_text(llm, messages, fallback_text: str) -> str:
+    """Invoke an LLM call and return safe fallback text on provider/runtime failures."""
+    try:
+        response = llm.invoke(messages)
+        text = extract_text(getattr(response, "content", ""))
+        if text and text.strip():
+            return text
         return fallback_text
-
-    return ""
-
-
-def build_proposer_backup(claim: str, support_results: list) -> str:
-    """Generate a deterministic Proposer response when model output is unavailable."""
-    urls = [str(r.get("url", "Unknown")) for r in (support_results or []) if isinstance(r, dict)]
-    citation = ", ".join(urls[:2]) if urls else "available sources"
-
-    return (
-        f"The Skeptic-side framing overstates certainty by treating one observational standard as the only valid lens for assessing '{claim}'. "
-        f"Evidence discussions across {citation} show the claim's persistence hinges on scale, detectability, and interpretation under viewing conditions rather than a single binary test. "
-        "A defensible Proposer position is that prominence can be argued through geometric extent, contrast-dependent perception, and technology-informed observation from lunar distance. "
-        "Therefore, the claim remains contestable in favor of the Proposer when the debate explicitly evaluates detectability and prominence criteria together."
-    )
+    except Exception as e:
+        # Keep errors out of user-visible crashes while preserving traceability in output.
+        return f"{fallback_text} (Temporary model/provider issue: {str(e)[:160]})"
 
 
 def extract_first_json_object(text: str) -> str:
@@ -172,6 +150,47 @@ def extract_first_json_object(text: str) -> str:
                 return text[start : i + 1]
 
     return ""
+
+
+def _is_provider_fallback(text: str, marker: str) -> bool:
+    lowered = (text or "").lower()
+    return marker.lower() in lowered or "temporary model/provider issue" in lowered
+
+
+def _heuristic_judge_evaluation(state: AgentState) -> dict:
+    """Provide deterministic scoring when judge model output is unavailable or unparsable."""
+    proposer_text = get_latest_role_text(state.get("messages", []), "proposer")
+    skeptic_text = get_latest_role_text(state.get("messages", []), "skeptic")
+
+    proposer_score = 5
+    skeptic_score = 5
+
+    if has_semantic_reframing(proposer_text):
+        proposer_score -= 2
+        skeptic_score += 1
+
+    if len((skeptic_text or "").strip()) > len((proposer_text or "").strip()):
+        skeptic_score += 1
+
+    proposer_score = clamp_score(proposer_score, 0, 10)
+    skeptic_score = clamp_score(skeptic_score, 0, 10)
+
+    if proposer_score > skeptic_score:
+        final_winner_role = "proposer"
+        winner = "The Proposer wins by maintaining the stronger overall case under the final criteria."
+    else:
+        final_winner_role = "skeptic"
+        winner = "The Skeptic wins by presenting stronger evidence and clearer factual grounding."
+
+    return {
+        "reasoning": "Heuristic evaluation used because judge model output was unavailable.",
+        "proposer_score": proposer_score,
+        "skeptic_score": skeptic_score,
+        "final_winner_role": final_winner_role,
+        "winner": winner,
+        "finality_score": 6,
+        "decision": "[REBUTTAL_REQUIRED]",
+    }
 
 def proposer_node(state: AgentState):
     """Generate a Proposer argument or rebuttal grounded in supporting sources."""
@@ -224,10 +243,46 @@ def proposer_node(state: AgentState):
         HumanMessage(content=user_prompt)
     ]
 
-    model_text = safe_invoke_text(llm, msgs, retries=1)
-    response_text = strip_process_preface(model_text)
+    primary_fallback = "The strongest available evidence still favors the claim, but the model response failed."
+    response_text = strip_process_preface(
+        safe_invoke_text(
+            llm,
+            msgs,
+            primary_fallback,
+        )
+    )
+
+    # Cloud-safe second attempt with lighter prompt when primary call fails/empties.
+    if _is_provider_fallback(response_text, primary_fallback):
+        backup_llm = get_llm(temperature=0.35)
+        compact_context = "\n".join(
+            [f"- {r.get('url', 'Unknown')}: {r.get('content', '')}" for r in (support_results or [])[:2]]
+        )
+        backup_msgs = [
+            SystemMessage(
+                content=(
+                    "Role: Proposer. Defend the statement literally in 4 concise sentences. "
+                    "Do not use process-preface language. Use evidence where possible."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Claim: {current_claim}\n"
+                    f"Evidence:\n{compact_context}\n"
+                    "Write a direct defense now."
+                )
+            ),
+        ]
+        response_text = strip_process_preface(
+            safe_invoke_text(
+                backup_llm,
+                backup_msgs,
+                "The claim can still be defended through scale-based visibility arguments, though a complete model response was unavailable.",
+            )
+        )
+
     if not response_text.strip():
-        response_text = build_proposer_backup(current_claim, support_results)
+        response_text = "The strongest available evidence still favors the claim, but the model returned no usable text."
     saved_context = {
         "role": "proposer",
         "query": support_query,
@@ -346,6 +401,7 @@ def judge_node(state: AgentState):
         '{"reasoning":"Judge fallback due to temporary model/provider issue.","proposer_score":4,"skeptic_score":6,"winner_role":"Skeptic","winner":"The Skeptic wins by presenting stronger evidence and clearer factual grounding.","finality_score":6,"decision":"[REBUTTAL_REQUIRED]"}'
     )
 
+    used_heuristic = False
     try:
         content = response_text.replace("```json", "").replace("```", "").strip()
         if not content.startswith("{"):
@@ -417,19 +473,25 @@ def judge_node(state: AgentState):
         )
         decision = "[FINALIZE]" if should_finalize else "[REBUTTAL_REQUIRED]"
     except Exception as e:
-        f_score = 5
-        decision = "[REBUTTAL_REQUIRED]"
-        reasoning = f"Parsing error occurred. Continuing debate with conservative fallback. Log: {str(e)}"
-        proposer_score = 0
-        skeptic_score = 0
-        final_winner_role = ""
-        winner = ""
+        heuristic = _heuristic_judge_evaluation(state)
+        f_score = heuristic["finality_score"]
+        decision = heuristic["decision"]
+        reasoning = (
+            f"{heuristic['reasoning']} Parsing detail: {str(e)[:120]}"
+        )
+        proposer_score = heuristic["proposer_score"]
+        skeptic_score = heuristic["skeptic_score"]
+        final_winner_role = heuristic["final_winner_role"]
+        winner = heuristic["winner"]
+        used_heuristic = True
         
     judge_message = (
         f"**Evaluation Reasoning:** {reasoning} "
         f"\n\n*Calculated Finality Score: {f_score}/10*"
         f"\n\n*Proposer Score: {proposer_score}/10 | Skeptic Score: {skeptic_score}/10*"
     )
+    if used_heuristic:
+        judge_message += "\n\n*Mode: Heuristic fallback (model output unavailable/parsing failed).*"
     return {
         "messages": [
             AIMessage(
