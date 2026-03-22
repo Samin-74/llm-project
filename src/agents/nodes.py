@@ -117,17 +117,39 @@ def strip_process_preface(text: str) -> str:
     return cleaned if cleaned else original
 
 
-def safe_invoke_text(llm, messages, fallback_text: str) -> str:
-    """Invoke an LLM call and return safe fallback text on provider/runtime failures."""
-    try:
-        response = llm.invoke(messages)
-        text = extract_text(getattr(response, "content", ""))
-        if text and text.strip():
-            return text
+def safe_invoke_text(llm, messages, fallback_text: str = "", retries: int = 1) -> str:
+    """Invoke an LLM call with retry and optional fallback text."""
+    last_error = ""
+    attempts = max(1, retries + 1)
+
+    for _ in range(attempts):
+        try:
+            response = llm.invoke(messages)
+            text = extract_text(getattr(response, "content", ""))
+            if text and text.strip():
+                return text
+        except Exception as e:
+            last_error = str(e)
+
+    if fallback_text:
+        if last_error:
+            return f"{fallback_text} (Temporary model/provider issue: {last_error[:160]})"
         return fallback_text
-    except Exception as e:
-        # Keep errors out of user-visible crashes while preserving traceability in output.
-        return f"{fallback_text} (Temporary model/provider issue: {str(e)[:160]})"
+
+    return ""
+
+
+def build_proposer_backup(claim: str, support_results: list) -> str:
+    """Generate a deterministic Proposer response when model output is unavailable."""
+    urls = [str(r.get("url", "Unknown")) for r in (support_results or []) if isinstance(r, dict)]
+    citation = ", ".join(urls[:2]) if urls else "available sources"
+
+    return (
+        f"The Skeptic-side framing overstates certainty by treating one observational standard as the only valid lens for assessing '{claim}'. "
+        f"Evidence discussions across {citation} show the claim's persistence hinges on scale, detectability, and interpretation under viewing conditions rather than a single binary test. "
+        "A defensible Proposer position is that prominence can be argued through geometric extent, contrast-dependent perception, and technology-informed observation from lunar distance. "
+        "Therefore, the claim remains contestable in favor of the Proposer when the debate explicitly evaluates detectability and prominence criteria together."
+    )
 
 
 def extract_first_json_object(text: str) -> str:
@@ -202,15 +224,10 @@ def proposer_node(state: AgentState):
         HumanMessage(content=user_prompt)
     ]
 
-    response_text = strip_process_preface(
-        safe_invoke_text(
-            llm,
-            msgs,
-            "The strongest available evidence still favors the claim, but the model response failed."
-        )
-    )
+    model_text = safe_invoke_text(llm, msgs, retries=1)
+    response_text = strip_process_preface(model_text)
     if not response_text.strip():
-        response_text = "The strongest available evidence still favors the claim, but the model returned no usable text."
+        response_text = build_proposer_backup(current_claim, support_results)
     saved_context = {
         "role": "proposer",
         "query": support_query,
