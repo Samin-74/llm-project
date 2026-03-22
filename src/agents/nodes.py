@@ -147,8 +147,8 @@ def proposer_node(state: AgentState):
         "4) Final sentence gives a firm conclusion IN FAVOR of the claim.\n"
         "Reference the retrieved supporting context when useful and cite sources clearly.\n\n"
         f"RETRIEVED SUPPORTING CONTEXT:\n{support_context_str}\n\n"
-        "Provide an initial argument actively supporting the statement, or fiercely rebut the Skeptic's counter-arguments. "                                                       
-        "Maintain a highly professional, academic tone. Keep the response under 150 words."                                                                         
+        "Provide an initial argument actively supporting the statement, or fiercely rebut the Skeptic's counter-arguments. "
+        "Maintain a highly professional, academic tone. Keep the response under 220 words."
     )
     
     transcript = format_history(state["messages"])
@@ -214,7 +214,7 @@ def skeptic_node(state: AgentState):
         "Reference the following retrieved context to structure a counter-argument. "                                                                                   
         "Identify nuances, discrepancies, or missing context. Cite provided sources clearly.\n\n"                                                                       
         f"RETRIEVED CONTEXT:\n{context_str}\n\n"
-        "Maintain a highly professional, academic tone. Keep the response under 150 words."                                                                         
+        "Maintain a highly professional, academic tone. Keep the response under 220 words."
     )
 
     transcript = format_history(state["messages"])

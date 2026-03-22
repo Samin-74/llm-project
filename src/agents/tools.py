@@ -2,6 +2,11 @@ import os
 from functools import lru_cache
 
 try:
+    from tavily import TavilyClient
+except Exception:
+    TavilyClient = None
+
+try:
     from langchain_tavily import TavilySearch
 except Exception:
     # Backward-compatible fallback for environments without langchain-tavily.
@@ -12,13 +17,31 @@ except Exception:
 @lru_cache(maxsize=128)
 def _cached_tavily_search(query: str):
     """Execute a Tavily query through an LRU-cached wrapper."""
+    cleaned_query = " ".join((query or "").split()).strip()[:180]
+    if not cleaned_query:
+        cleaned_query = "fact check claim"
+
     # Tavily wrapper
     if "TavilySearch" in globals():
-        tool = TavilySearch(max_results=2, search_depth="basic")
+        tool = TavilySearch(max_results=3, search_depth="advanced")
     else:
-        tool = TavilySearchResults(max_results=2, search_depth="basic")
-    # Langchain tools can be invoked directly
-    return tool.invoke({"query": query})
+        tool = TavilySearchResults(max_results=3, search_depth="advanced")
+
+    # Wrapper compatibility: some versions expect string input, others expect dict.
+    invoke_errors = []
+    for payload in (cleaned_query, {"query": cleaned_query}):
+        try:
+            return tool.invoke(payload)
+        except Exception as e:
+            invoke_errors.append(str(e))
+
+    # Fallback to official Tavily client if wrapper signatures are incompatible.
+    if TavilyClient is not None and os.environ.get("TAVILY_API_KEY"):
+        client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
+        return client.search(query=cleaned_query, max_results=3, search_depth="advanced")
+
+    # Bubble the most useful wrapper error if all strategies fail.
+    raise RuntimeError(" | ".join(invoke_errors) if invoke_errors else "Tavily search failed")
 
 
 def _normalize_search_results(raw_results) -> list:
@@ -37,7 +60,7 @@ def _normalize_search_results(raw_results) -> list:
         return [{"url": "raw_result", "content": str(raw_results)}]
 
     normalized = []
-    max_content_chars = 320
+    max_content_chars = 900
     for item in raw_results:
         if isinstance(item, dict):
             content = str(item.get("content") or item.get("snippet") or item.get("title") or "")
