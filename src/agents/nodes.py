@@ -41,6 +41,20 @@ def format_history(messages):
     return "\n\n".join(transcript)
 
 
+def format_history_compact(messages, max_messages: int = 8, max_chars: int = 2600) -> str:
+    """Return a compact transcript window to avoid model context overflows/timeouts."""
+    if not messages:
+        return ""
+
+    window = list(messages)[-max_messages:]
+    transcript = format_history(window)
+    if len(transcript) <= max_chars:
+        return transcript
+
+    # Keep the most recent context because turn-by-turn debate state matters most.
+    return transcript[-max_chars:]
+
+
 def get_latest_role_text(messages, role_name: str) -> str:
     """Return the most recent message text for a specific debate role."""
     for m in reversed(messages or []):
@@ -78,7 +92,8 @@ def strip_process_preface(text: str) -> str:
     if not text:
         return text
 
-    cleaned = text.strip()
+    original = (text or "").strip()
+    cleaned = original
     # Remove common lead-ins that mention retrieval/process rather than argument substance.
     lead_patterns = [
         "the retrieved context",
@@ -98,7 +113,8 @@ def strip_process_preface(text: str) -> str:
                 cleaned = re.sub(r"^.*?(,|:)\s*", "", cleaned, count=1).strip()
             break
 
-    return cleaned
+    # If cleanup removed everything, return the original text instead of a blank message.
+    return cleaned if cleaned else original
 
 
 def safe_invoke_text(llm, messages, fallback_text: str) -> str:
@@ -176,7 +192,7 @@ def proposer_node(state: AgentState):
         "Maintain a highly professional, academic tone. Keep the response under 220 words."
     )
     
-    transcript = format_history(state["messages"])
+    transcript = format_history_compact(state["messages"], max_messages=8, max_chars=2200)
     user_prompt = (
         f"Transcript so far:\n{transcript}\n\n"
         "Provide a direct rebuttal using the required 4-sentence structure, including new supporting points of your own."
@@ -244,7 +260,7 @@ def skeptic_node(state: AgentState):
         "Maintain a highly professional, academic tone. Keep the response under 220 words."
     )
 
-    transcript = format_history(state["messages"])
+    transcript = format_history_compact(state["messages"], max_messages=8, max_chars=2200)
     user_prompt = (
         f"Transcript so far:\n{transcript}\n\n"
         "Provide a direct rebuttal in four parts: identify the Proposer's key error, rebut with evidence, add new critical points of your own, and conclude firmly. "
@@ -301,7 +317,7 @@ def judge_node(state: AgentState):
         "}"
     )
 
-    transcript = format_history(state["messages"])
+    transcript = format_history_compact(state["messages"], max_messages=10, max_chars=2800)
     user_prompt = f"Transcript to evaluate:\n{transcript}\n\nPlease provide your evaluation in the strictly requested JSON format."                             
     msgs = [
         SystemMessage(content=system_prompt),
