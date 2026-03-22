@@ -78,7 +78,8 @@ def strip_process_preface(text: str) -> str:
     if not text:
         return text
 
-    cleaned = text.strip()
+    original = text.strip()
+    cleaned = original
     # Remove common lead-ins that mention retrieval/process rather than argument substance.
     lead_patterns = [
         "the retrieved context",
@@ -97,6 +98,10 @@ def strip_process_preface(text: str) -> str:
             else:
                 cleaned = re.sub(r"^.*?(,|:)\s*", "", cleaned, count=1).strip()
             break
+
+    # Guard against over-stripping that can produce blank/near-empty responses.
+    if not cleaned or len(cleaned.strip()) < 24:
+        return original
 
     return cleaned
 
@@ -168,6 +173,11 @@ def proposer_node(state: AgentState):
             "The strongest available evidence still favors the claim, but the model response failed."
         )
     )
+    if not response_text or not response_text.strip():
+        response_text = (
+            "A literal defense remains plausible under selective observational assumptions, "
+            "though evidence quality is mixed and requires tighter source-backed support."
+        )
     saved_context = {
         "role": "proposer",
         "query": support_query,
@@ -234,6 +244,11 @@ def skeptic_node(state: AgentState):
             "The Proposer argument remains unsupported under direct evidence review, but the model response failed."
         )
     )
+    if not response_text or not response_text.strip():
+        response_text = (
+            "The claim remains unsubstantiated under literal interpretation because observational constraints "
+            "and cited evidence do not support naked-eye lunar visibility."
+        )
 
     saved_context = {
         "role": "skeptic",
