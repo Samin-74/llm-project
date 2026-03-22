@@ -14,9 +14,9 @@ def _cached_tavily_search(query: str):
     """Execute a Tavily query through an LRU-cached wrapper."""
     # Tavily wrapper
     if "TavilySearch" in globals():
-        tool = TavilySearch(max_results=3, search_depth="advanced")
+        tool = TavilySearch(max_results=2, search_depth="basic")
     else:
-        tool = TavilySearchResults(max_results=3, search_depth="advanced")
+        tool = TavilySearchResults(max_results=2, search_depth="basic")
     # Langchain tools can be invoked directly
     return tool.invoke({"query": query})
 
@@ -37,12 +37,16 @@ def _normalize_search_results(raw_results) -> list:
         return [{"url": "raw_result", "content": str(raw_results)}]
 
     normalized = []
+    max_content_chars = 320
     for item in raw_results:
         if isinstance(item, dict):
+            content = str(item.get("content") or item.get("snippet") or item.get("title") or "")
+            if len(content) > max_content_chars:
+                content = content[:max_content_chars].rstrip() + "..."
             normalized.append(
                 {
                     "url": str(item.get("url") or item.get("source") or "Unknown"),
-                    "content": str(item.get("content") or item.get("snippet") or item.get("title") or ""),
+                    "content": content,
                 }
             )
         else:

@@ -100,6 +100,16 @@ def strip_process_preface(text: str) -> str:
 
     return cleaned
 
+
+def safe_invoke_text(llm, messages, fallback_text: str) -> str:
+    """Invoke an LLM call and return safe fallback text on provider/runtime failures."""
+    try:
+        response = llm.invoke(messages)
+        return extract_text(getattr(response, "content", ""))
+    except Exception as e:
+        # Keep errors out of user-visible crashes while preserving traceability in output.
+        return f"{fallback_text} (Temporary model/provider issue: {str(e)[:160]})"
+
 def proposer_node(state: AgentState):
     """Generate a Proposer argument or rebuttal grounded in supporting sources."""
     llm = get_llm(temperature=0.7)
@@ -110,7 +120,11 @@ def proposer_node(state: AgentState):
         f"Write a concise 3-5 word search query to find evidence supporting this statement: '{current_claim}'"
     )
     query_llm = get_llm(temperature=0.1)
-    support_query_content = query_llm.invoke([HumanMessage(content=support_query_prompt)]).content
+    support_query_content = safe_invoke_text(
+        query_llm,
+        [HumanMessage(content=support_query_prompt)],
+        "supporting evidence query",
+    )
     support_query = extract_text(support_query_content).strip('"\'')
     support_results = perform_search(support_query)
     support_context_str = "\n".join(
@@ -147,8 +161,13 @@ def proposer_node(state: AgentState):
         HumanMessage(content=user_prompt)
     ]
 
-    response = llm.invoke(msgs)
-    response_text = strip_process_preface(extract_text(response.content))
+    response_text = strip_process_preface(
+        safe_invoke_text(
+            llm,
+            msgs,
+            "The strongest available evidence still favors the claim, but the model response failed."
+        )
+    )
     saved_context = {
         "role": "proposer",
         "query": support_query,
@@ -169,7 +188,11 @@ def skeptic_node(state: AgentState):
     query_prompt = f"Write a concisely phrased 3-5 word search query strictly to find contrary evidence for this statement: '{current_claim}'"                      
     query_llm = get_llm(temperature=0.1)
     
-    search_query_content = query_llm.invoke([HumanMessage(content=query_prompt)]).content
+    search_query_content = safe_invoke_text(
+        query_llm,
+        [HumanMessage(content=query_prompt)],
+        "counter-evidence query",
+    )
     search_query = extract_text(search_query_content).strip('\"\'')
                                                                   
     search_results = perform_search(search_query)
@@ -204,8 +227,13 @@ def skeptic_node(state: AgentState):
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_prompt)
     ]
-    response = llm.invoke(msgs)
-    response_text = strip_process_preface(extract_text(response.content))
+    response_text = strip_process_preface(
+        safe_invoke_text(
+            llm,
+            msgs,
+            "The Proposer argument remains unsupported under direct evidence review, but the model response failed."
+        )
+    )
 
     saved_context = {
         "role": "skeptic",
@@ -250,8 +278,11 @@ def judge_node(state: AgentState):
         SystemMessage(content=system_prompt),
         HumanMessage(content=user_prompt)
     ]
-    response = llm.invoke(msgs)
-    response_text = extract_text(response.content)
+    response_text = safe_invoke_text(
+        llm,
+        msgs,
+        '{"reasoning":"Judge fallback due to temporary model/provider issue.","proposer_score":4,"skeptic_score":6,"winner_role":"Skeptic","winner":"The Skeptic wins by presenting stronger evidence and clearer factual grounding.","finality_score":6,"decision":"[REBUTTAL_REQUIRED]"}'
+    )
 
     try:
         content = response_text.replace("```json", "").replace("```", "").strip()

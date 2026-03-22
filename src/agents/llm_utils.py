@@ -50,12 +50,16 @@ def get_llm(model_role: str = "flash", temperature: float = 0.5):
             "OPENROUTER_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
         )
 
+    model_name = os.environ.get("OPENROUTER_MODEL", "stepfun/step-3.5-flash:free")
+
     return ChatOpenAI(
-        model="stepfun/step-3.5-flash:free",
+        model=model_name,
         temperature=temperature,
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1",
         max_retries=2,
+        timeout=45,
+        max_completion_tokens=280,
         default_headers={
             "HTTP-Referer": "http://localhost:8501",
             "X-Title": "Fact-Check Debate System",
