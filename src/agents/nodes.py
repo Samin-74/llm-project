@@ -78,8 +78,7 @@ def strip_process_preface(text: str) -> str:
     if not text:
         return text
 
-    original = text.strip()
-    cleaned = original
+    cleaned = text.strip()
     # Remove common lead-ins that mention retrieval/process rather than argument substance.
     lead_patterns = [
         "the retrieved context",
@@ -99,10 +98,6 @@ def strip_process_preface(text: str) -> str:
                 cleaned = re.sub(r"^.*?(,|:)\s*", "", cleaned, count=1).strip()
             break
 
-    # Guard against over-stripping that can produce blank/near-empty responses.
-    if not cleaned or len(cleaned.strip()) < 24:
-        return original
-
     return cleaned
 
 
@@ -110,10 +105,35 @@ def safe_invoke_text(llm, messages, fallback_text: str) -> str:
     """Invoke an LLM call and return safe fallback text on provider/runtime failures."""
     try:
         response = llm.invoke(messages)
-        return extract_text(getattr(response, "content", ""))
+        text = extract_text(getattr(response, "content", ""))
+        if text and text.strip():
+            return text
+        return fallback_text
     except Exception as e:
         # Keep errors out of user-visible crashes while preserving traceability in output.
         return f"{fallback_text} (Temporary model/provider issue: {str(e)[:160]})"
+
+
+def extract_first_json_object(text: str) -> str:
+    """Extract the first top-level JSON object from mixed model output."""
+    if not text:
+        return ""
+
+    start = text.find("{")
+    if start == -1:
+        return ""
+
+    depth = 0
+    for i in range(start, len(text)):
+        ch = text[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+
+    return ""
 
 def proposer_node(state: AgentState):
     """Generate a Proposer argument or rebuttal grounded in supporting sources."""
@@ -173,11 +193,8 @@ def proposer_node(state: AgentState):
             "The strongest available evidence still favors the claim, but the model response failed."
         )
     )
-    if not response_text or not response_text.strip():
-        response_text = (
-            "A literal defense remains plausible under selective observational assumptions, "
-            "though evidence quality is mixed and requires tighter source-backed support."
-        )
+    if not response_text.strip():
+        response_text = "The strongest available evidence still favors the claim, but the model returned no usable text."
     saved_context = {
         "role": "proposer",
         "query": support_query,
@@ -244,11 +261,8 @@ def skeptic_node(state: AgentState):
             "The Proposer argument remains unsupported under direct evidence review, but the model response failed."
         )
     )
-    if not response_text or not response_text.strip():
-        response_text = (
-            "The claim remains unsubstantiated under literal interpretation because observational constraints "
-            "and cited evidence do not support naked-eye lunar visibility."
-        )
+    if not response_text.strip():
+        response_text = "The Proposer argument remains unsupported under direct evidence review, but the model returned no usable text."
 
     saved_context = {
         "role": "skeptic",
@@ -301,6 +315,10 @@ def judge_node(state: AgentState):
 
     try:
         content = response_text.replace("```json", "").replace("```", "").strip()
+        if not content.startswith("{"):
+            extracted = extract_first_json_object(content)
+            if extracted:
+                content = extracted
         parsed = json.loads(content)
         f_score = clamp_score(parsed.get("finality_score", 5), 1, 10)
         parsed_decision = parsed.get("decision", "[REBUTTAL_REQUIRED]")
