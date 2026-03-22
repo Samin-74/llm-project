@@ -59,7 +59,7 @@ def get_llm(model_role: str = "flash", temperature: float = 0.5):
         base_url="https://openrouter.ai/api/v1",
         max_retries=2,
         timeout=75,
-        max_completion_tokens=520,
+        max_completion_tokens=1500,
         default_headers={
             "HTTP-Referer": "http://localhost:8501",
             "X-Title": "Fact-Check Debate System",
