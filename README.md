@@ -32,6 +32,11 @@ TAVILY_API_KEY = "your_tavily_key"
 
 3. Save secrets and redeploy/reboot the app.
 
+Important:
+- API keys are **not uploaded from your local `.env`** to GitHub/Streamlit automatically (this is intentional for security).
+- You must add keys manually in Streamlit Cloud Secrets for each deployed app.
+
 Notes:
 - `runtime.txt` pins Python to 3.12 for better compatibility with current LangChain dependencies.
+- `.python-version` also requests Python 3.12 for environments that honor it.
 - The app automatically reads keys from Streamlit secrets when environment variables are missing.
