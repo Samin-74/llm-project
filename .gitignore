@@ -1,0 +1,42 @@
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter and notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/editor settings
+.vscode/
+.idea/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+
+# Secrets and local environment config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.secrets*
+
+# Logs
+*.log
+
+# Streamlit local config/secrets
+.streamlit/secrets.toml

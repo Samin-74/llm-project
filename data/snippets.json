@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "category": "Science / Myth",
+    "claim": "The Great Wall of China is visibly prominent from the Moon."
+  },
+  {
+    "id": 2,
+    "category": "Technology",
+    "claim": "Artificial Intelligence is currently sentient and possesses a sense of self-awareness similar to humans."
+  },
+  {
+    "id": 3,
+    "category": "Nutrition",
+    "claim": "Eating carrots significantly improves night vision."
+  },
+  {
+    "id": 4,
+    "category": "History",
+    "claim": "Napoleon Bonaparte was extremely short for his time, standing at only 5 feet tall."
+  },
+  {
+    "id": 5,
+    "category": "Economics",
+    "claim": "A totally cashless society eliminates all illicit financial transactions and black markets."
+  },
+  {
+    "id": 6,
+    "category": "Recent Events / Tech",
+    "claim": "Quantum computers have officially broken RSA-2048 encryption as of 2024."
+  }
+]
