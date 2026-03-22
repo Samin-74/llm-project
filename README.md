@@ -20,3 +20,18 @@ The system securely processes a statement, fetches targeted evidence from the we
 1. `pip install -r requirements.txt`
 2. Configure `.env` with required keys (at minimum `OPENROUTER_API_KEY` and `TAVILY_API_KEY`).
 3. Execute `python -m streamlit run src/app.py`
+
+## Streamlit Cloud Deployment
+1. Deploy the repo with main file `src/app.py`.
+2. In Streamlit Cloud app settings, open **Secrets** and add:
+
+```toml
+OPENROUTER_API_KEY = "your_openrouter_key"
+TAVILY_API_KEY = "your_tavily_key"
+```
+
+3. Save secrets and redeploy/reboot the app.
+
+Notes:
+- `runtime.txt` pins Python to 3.12 for better compatibility with current LangChain dependencies.
+- The app automatically reads keys from Streamlit secrets when environment variables are missing.

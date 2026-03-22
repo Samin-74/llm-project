@@ -14,6 +14,30 @@ if str(PROJECT_ROOT) not in sys.path:
 # Load environment variables
 load_dotenv(override=True)
 
+def _load_cloud_secrets_to_env() -> None:
+    """Mirror Streamlit secrets into environment variables when missing."""
+    required_keys = ["OPENROUTER_API_KEY", "TAVILY_API_KEY"]
+
+    for key in required_keys:
+        if os.environ.get(key):
+            continue
+
+        value = st.secrets.get(key)
+        if value:
+            os.environ[key] = str(value)
+
+    # Optional grouped secrets section support, e.g. [api_keys] in secrets.toml.
+    api_keys_section = st.secrets.get("api_keys")
+    if hasattr(api_keys_section, "get"):
+        for key in required_keys:
+            if not os.environ.get(key):
+                value = api_keys_section.get(key)
+                if value:
+                    os.environ[key] = str(value)
+
+
+_load_cloud_secrets_to_env()
+
 from src.agents.graph import build_graph
 from langchain_core.messages import AIMessage, HumanMessage
 
