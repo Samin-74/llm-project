@@ -40,3 +40,9 @@ Thumbs.db
 
 # Streamlit local config/secrets
 .streamlit/secrets.toml
+.streamlit/credentials.toml
+
+# Generated evaluation artifacts (reproducible outputs)
+evaluation/chart_*.png
+evaluation/evaluation_report.md
+evaluation/evaluation_results*.json
