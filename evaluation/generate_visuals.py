@@ -1,15 +1,12 @@
 import json
 from pathlib import Path
-from datetime import datetime
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
 
 sns.set_theme(style="whitegrid", context="talk")
-np.random.seed(42)
 
 TRUTH_PALETTE = {
     "False": "#3A86FF",
@@ -381,9 +378,6 @@ def generate_report(results_file: str | Path | None = None):
 
     report = []
     report.append("# Multi-Agent Fact-Check Debate: Evaluation Report")
-    report.append("")
-    report.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report.append(f"Results Source: {resolved_results_file.name}")
     report.append("")
     report.append(f"Total Claims Run: {len(df_valid)}")
     report.append(f"Evaluatable Claims (True/False only): {evaluatable_count}")

@@ -9,13 +9,6 @@ except Exception:
 
 logger = logging.getLogger(__name__)
 
-_MODEL_ALIASES = {
-    # Common shorthand that appears in dashboards/chats.
-    "nvidia/nemotron-3-super:free": "nvidia/nemotron-3-super-120b-a12b:free",
-    "nemotron-3-super:free": "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia: nemotron 3 super (free)": "nvidia/nemotron-3-super-120b-a12b:free",
-}
-
 
 def _get_secret_value(key: str) -> str | None:
     """Resolve a secret from env first, then Streamlit secrets if available."""
@@ -46,18 +39,10 @@ def _get_secret_value(key: str) -> str | None:
 
     return None
 
-
-def _normalize_model_name(model_name: str) -> str:
-    normalized_key = (model_name or "").strip().lower()
-    if normalized_key in _MODEL_ALIASES:
-        mapped = _MODEL_ALIASES[normalized_key]
-        logger.warning("Mapped OPENROUTER_MODEL alias '%s' -> '%s'", model_name, mapped)
-        return mapped
-    return (model_name or "").strip()
-
 def get_llm(model_role: str = "flash", temperature: float = 0.5):
     """
-    Returns an OpenRouter or Gemini Chat model instance via langchain-openai compatible client.
+    Returns an OpenRouter chat model instance.
+    Uses stepfun/step-3.5-flash:free as the unified model backend.
     """
     api_key = _get_secret_value("OPENROUTER_API_KEY")
     if not api_key:
@@ -65,16 +50,18 @@ def get_llm(model_role: str = "flash", temperature: float = 0.5):
             "OPENROUTER_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
         )
 
-    requested_model_name = os.environ.get(
-        "OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free"
-    )
-    model_name = _normalize_model_name(requested_model_name)
+    model_name = os.environ.get("OPENROUTER_MODEL", "stepfun/step-3.5-flash:free")
 
     return ChatOpenAI(
         model=model_name,
         temperature=temperature,
-        openai_api_key=api_key,
-        openai_api_base="https://openrouter.ai/api/v1",
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1",
         max_retries=2,
-        timeout=75
+        timeout=75,
+        max_completion_tokens=16384,
+        default_headers={
+            "HTTP-Referer": "http://localhost:8501",
+            "X-Title": "Fact-Check Debate System",
+        },
     )
