@@ -49,7 +49,7 @@ def get_llm(model_role: str = "flash", temperature: float = 0.5):
             "OPENROUTER_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
         )
 
-    model_name = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.5-flash")
+    model_name = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-super:free")
 
     return ChatOpenAI(
         model=model_name,
