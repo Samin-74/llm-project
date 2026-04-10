@@ -127,7 +127,8 @@ def safe_invoke_text(llm, messages, fallback_text: str) -> str:
         return fallback_text
     except Exception as e:
         # Keep errors out of user-visible crashes while preserving traceability in output.
-        return f"{fallback_text} (Temporary model/provider issue: {str(e)[:160]})"
+        # We strip the raw message to prevent leaking it into search queries.
+        return f"{fallback_text} (Temporary provider issue)"
 
 
 def extract_first_json_object(text: str) -> str:
@@ -154,7 +155,7 @@ def extract_first_json_object(text: str) -> str:
 
 def _is_provider_fallback(text: str, marker: str) -> bool:
     lowered = (text or "").lower()
-    return marker.lower() in lowered or "temporary model/provider issue" in lowered
+    return marker.lower() in lowered or "temporary provider issue" in lowered
 
 
 def _heuristic_judge_evaluation(state: AgentState) -> dict:
