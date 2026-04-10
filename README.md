@@ -12,14 +12,15 @@ The system securely processes a statement, fetches targeted evidence from the we
 
 ## Tech Stack
 * **Framework:** LangGraph (Stateful Multi-Agent Workflows)
-* **Models:** OpenRouter (configured in `src/agents/llm_utils.py`, currently using `stepfun/step-3.5-flash:free`).
+* **Models:** OpenRouter (configured in `src/agents/llm_utils.py`, defaulting to `nvidia/nemotron-3-super-120b-a12b:free`).
 * **Tools:** Tavily Search API with LRU Caching for robust search quota management.
 * **UI:** Streamlit (Real-time system state bridging and interactive UI).
 
 ## Setup
 1. `pip install -r requirements.txt`
 2. Configure `.env` with required keys (at minimum `OPENROUTER_API_KEY` and `TAVILY_API_KEY`).
-3. Execute `python -m streamlit run src/app.py`
+3. Optional: set `OPENROUTER_MODEL` to a valid OpenRouter model id if you want to override the default.
+4. Execute `python -m streamlit run src/app.py`
 
 ## Streamlit Cloud Deployment
 1. Deploy the repo with main file `src/app.py`.
@@ -28,6 +29,8 @@ The system securely processes a statement, fetches targeted evidence from the we
 ```toml
 OPENROUTER_API_KEY = "your_openrouter_key"
 TAVILY_API_KEY = "your_tavily_key"
+# Optional override (must be a valid OpenRouter model id)
+# OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 ```
 
 3. Save secrets and redeploy/reboot the app.
