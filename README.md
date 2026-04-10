@@ -12,7 +12,7 @@ The system securely processes a statement, fetches targeted evidence from the we
 
 ## Tech Stack
 * **Framework:** LangGraph (Stateful Multi-Agent Workflows)
-* **Models:** OpenRouter (configured in `src/agents/llm_utils.py`, currently using `stepfun/step-3.5-flash:free`).
+* **Models:** OpenRouter (configured in `src/agents/llm_utils.py`, currently using `stepfun/step-3.5-flash`).
 * **Tools:** Tavily Search API with LRU Caching for robust search quota management.
 * **UI:** Streamlit (Real-time system state bridging and interactive UI).
 
