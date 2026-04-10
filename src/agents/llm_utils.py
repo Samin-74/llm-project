@@ -1,6 +1,6 @@
 import os
 import logging
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 try:
     import streamlit as st
@@ -41,21 +41,21 @@ def _get_secret_value(key: str) -> str | None:
 
 def get_llm(model_role: str = "flash", temperature: float = 0.5):
     """
-    Returns a Google Generative AI chat model instance.
-    Uses gemini-2.5-flash as the default backend.
+    Returns an OpenRouter or Gemini Chat model instance via langchain-openai compatible client.
     """
-    api_key = _get_secret_value("GOOGLE_API_KEY")
+    api_key = _get_secret_value("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError(
-            "GOOGLE_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
+            "OPENROUTER_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
         )
 
-    model_name = os.environ.get("GOOGLE_MODEL", "gemini-2.5-flash")
+    model_name = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.5-flash")
 
-    return ChatGoogleGenerativeAI(
+    return ChatOpenAI(
         model=model_name,
         temperature=temperature,
-        google_api_key=api_key,
+        openai_api_key=api_key,
+        openai_api_base="https://openrouter.ai/api/v1",
         max_retries=2,
         timeout=75
     )

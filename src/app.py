@@ -16,7 +16,7 @@ load_dotenv(override=True)
 
 def _load_cloud_secrets_to_env() -> None:
     """Mirror Streamlit secrets into environment variables when missing."""
-    required_keys = ["GOOGLE_API_KEY", "TAVILY_API_KEY"]
+    required_keys = ["OPENROUTER_API_KEY", "TAVILY_API_KEY"]
 
     for key in required_keys:
         if os.environ.get(key):
