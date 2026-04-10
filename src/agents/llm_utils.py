@@ -9,6 +9,13 @@ except Exception:
 
 logger = logging.getLogger(__name__)
 
+_MODEL_ALIASES = {
+    # Common shorthand that appears in dashboards/chats.
+    "nvidia/nemotron-3-super:free": "nvidia/nemotron-3-super-120b-a12b:free",
+    "nemotron-3-super:free": "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia: nemotron 3 super (free)": "nvidia/nemotron-3-super-120b-a12b:free",
+}
+
 
 def _get_secret_value(key: str) -> str | None:
     """Resolve a secret from env first, then Streamlit secrets if available."""
@@ -39,6 +46,15 @@ def _get_secret_value(key: str) -> str | None:
 
     return None
 
+
+def _normalize_model_name(model_name: str) -> str:
+    normalized_key = (model_name or "").strip().lower()
+    if normalized_key in _MODEL_ALIASES:
+        mapped = _MODEL_ALIASES[normalized_key]
+        logger.warning("Mapped OPENROUTER_MODEL alias '%s' -> '%s'", model_name, mapped)
+        return mapped
+    return (model_name or "").strip()
+
 def get_llm(model_role: str = "flash", temperature: float = 0.5):
     """
     Returns an OpenRouter or Gemini Chat model instance via langchain-openai compatible client.
@@ -49,7 +65,10 @@ def get_llm(model_role: str = "flash", temperature: float = 0.5):
             "OPENROUTER_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
         )
 
-    model_name = os.environ.get("OPENROUTER_MODEL", "nvidia/nemotron-3-super:free")
+    requested_model_name = os.environ.get(
+        "OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free"
+    )
+    model_name = _normalize_model_name(requested_model_name)
 
     return ChatOpenAI(
         model=model_name,
