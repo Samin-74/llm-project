@@ -1,5 +1,8 @@
 # Multi-Agent Fact-Check Debate: Evaluation Report
 
+Generated: 2026-04-10 19:07:58
+Results Source: evaluation_results.json
+
 Total Claims Run: 15
 Evaluatable Claims (True/False only): 12
 
