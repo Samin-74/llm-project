@@ -42,7 +42,7 @@ def _get_secret_value(key: str) -> str | None:
 def get_llm(model_role: str = "flash", temperature: float = 0.5):
     """
     Returns an OpenRouter chat model instance.
-    Uses stepfun/step-3.5-flash:free as the unified model backend.
+    Uses qwen/qwen3-next-80b-a3b-instruct:free as the unified model backend.
     """
     api_key = _get_secret_value("OPENROUTER_API_KEY")
     if not api_key:
@@ -50,7 +50,7 @@ def get_llm(model_role: str = "flash", temperature: float = 0.5):
             "OPENROUTER_API_KEY is missing. Set it in Streamlit Cloud Secrets or local .env."
         )
 
-    model_name = os.environ.get("OPENROUTER_MODEL", "stepfun/step-3.5-flash:free")
+    model_name = os.environ.get("OPENROUTER_MODEL", "qwen/qwen3-next-80b-a3b-instruct:free")
 
     return ChatOpenAI(
         model=model_name,
